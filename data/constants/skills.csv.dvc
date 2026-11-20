@@ -1,0 +1,5 @@
+outs:
+- md5: 12e200f48438f7f02f54cccce5c32091
+  size: 2009
+  hash: md5
+  path: skills.csv
