@@ -27,7 +27,9 @@ data/**
 # Allow parent directories for explicitly tracked files
 !data/
 !data/constants/
-# Allow DVC tracking files
+!data/constants/KB/
+!data/constants/KB/**
+!data/constants/KB/*.dvc
 !data/**/*.dvc
 # Allow essential reference datasets
 !data/constants/jobs.csv

@@ -1,0 +1,5 @@
+outs:
+- md5: d0577c9576d4eb67fced57f454eecaf4
+  size: 256786
+  hash: md5
+  path: detailed_job_descriptions.json
