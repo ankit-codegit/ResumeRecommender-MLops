@@ -1,4 +1,6 @@
 [core]
-    remote = myremote
+    remote = dagshub
 ['remote "myremote"']
     url = s3://resume-recommender-mlops-storage
+['remote "dagshub"']
+    url = https://dagshub.com/ankit-codegit/ResumeRecommender-MLops.dvc
