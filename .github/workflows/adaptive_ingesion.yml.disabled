@@ -1,0 +1,145 @@
+name: Adaptive Ingestion & Drift Management
+
+on:
+  # ------------------------------------------------------------------
+  # TRIGGER STRATEGY
+  # ------------------------------------------------------------------
+  # Cron Breakdown: "0 0 1,11,21 * *"
+  # 0 0  -> 00:00 UTC (05:30 AM IST)
+  # 1,11,21 -> The 1st, 11th, and 21st of every month.
+  schedule:
+    - cron: '0 0 1,7,13,20,27 * *'
+  
+  # Allow manual trigger for testing/debugging
+  workflow_dispatch:
+
+#Grant Write Permission for Git Push as we update the dvc lock and can do git pull and then dvc pull for the latest results 
+permissions:
+  contents: write
+
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+    
+    steps:
+      # ------------------------------------------------------------------
+      # 1. ENVIRONMENT SETUP
+      # ------------------------------------------------------------------
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v3
+
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: 📦 Install Dependencies
+        run: |
+          pip install --upgrade pip
+          pip install dvc[s3] pandas psycopg2-binary sqlalchemy mlflow python-dotenv pyyaml serpapi google-search-results sentence-transformers boto3 scikit-learn==1.6.1
+
+      # ------------------------------------------------------------------
+      # 2. CONFIGURE PARAMETERS (CRITICAL STEP)
+      # ------------------------------------------------------------------
+      - name: 📅 Update Params (Batch ID)
+        run: python src/update_params.py
+
+      # ------------------------------------------------------------------
+      # 3. AWS AUTHENTICATION & SECURITY HACK
+      # ------------------------------------------------------------------
+      - name: 🔐 Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: "ap-south-1" 
+
+      - name: 🛡️ Whitelist Runner IP in RDS Security Group
+        id: whitelist-ip
+        run: |
+          IP=$(curl -s checkip.amazonaws.com)
+          echo "Detected Runner IP: $IP"
+          
+          aws ec2 authorize-security-group-ingress \
+            --group-id ${{ secrets.AWS_SG_ID }} \
+            --protocol tcp \
+            --port 5432 \
+            --cidr $IP/32
+          
+          echo "runner_ip=$IP" >> $GITHUB_OUTPUT
+
+      # ------------------------------------------------------------------
+      # 4. PARTIAL DVC PULL (THE FIX)
+      # ------------------------------------------------------------------
+      - name: 📡 Pull Models Only (Skip Missing Data)
+        # WHY: We only pull the Model and NLTK artifacts.
+        # We DO NOT pull 'data/' because we are about to regenerate it anyway.
+        # This prevents the "No file hash info found" error.
+        run: |
+          dvc remote modify myremote access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
+          dvc remote modify myremote secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          dvc pull models/all-mpnet-base-v2 artifacts/nltk_data
+
+      # ------------------------------------------------------------------
+      # 5. FAIL-FAST CHECKS
+      # ------------------------------------------------------------------
+      - name: 🔌 Check RDS Connectivity
+        env:
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+        run: python src/scripts/check_db.py
+
+      # ------------------------------------------------------------------
+      # 6. INTELLIGENT ADAPTATION
+      # ------------------------------------------------------------------
+      - name: 🧠 Analyze Drift & Update Policy
+        env:
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+        run: python src/scripts/manage_drift.py
+
+      # ------------------------------------------------------------------
+      # 7. EXECUTE PIPELINE
+      # ------------------------------------------------------------------
+      - name: 🚀 Run DVC Pipeline
+        env:
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
+          MLFLOW_TRACKING_USERNAME: ${{ secrets.MLFLOW_TRACKING_USERNAME }}
+          MLFLOW_TRACKING_PASSWORD: ${{ secrets.MLFLOW_TRACKING_PASSWORD }}
+          SERPAPI_API_KEY: ${{ secrets.SERPAPI_API_KEY }}
+        run: dvc repro
+
+      # ------------------------------------------------------------------
+      # 8. SAVE STATE
+      # ------------------------------------------------------------------
+      - name: ☁️ Push New Data to DVC (S3)
+        # Now we push EVERYTHING (Model + The new data we just generated)
+        run: dvc push
+
+      - name: 💾 Commit dvc.lock to Git
+        run: |
+          git config --global user.name 'GitHub Action Bot'
+          git config --global user.email 'bot@github.com'
+          git add dvc.lock params.yaml
+          git commit -m "🤖 Cron: Batch $(date +'%Y-%m-%d') [skip ci]" || echo "No changes to commit"
+          git push
+
+      # ------------------------------------------------------------------
+      # 9. CLEANUP
+      # ------------------------------------------------------------------
+      - name: 🧹 Revoke Runner IP from RDS
+        if: always() 
+        run: |
+          aws ec2 revoke-security-group-ingress \
+            --group-id ${{ secrets.AWS_SG_ID }} \
+            --protocol tcp \
+            --port 5432 \
+            --cidr ${{ steps.whitelist-ip.outputs.runner_ip }}/32

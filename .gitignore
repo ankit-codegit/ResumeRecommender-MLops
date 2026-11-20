@@ -1,0 +1,90 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Distribution / Packaging
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+venv*/
+.venv*/
+env*/
+
+# Secrets
+.env
+
+# Environment files
+.env*
+!.env.example
+
+# Artifacts / data
+# Ignore data contents by default
+data/**
+# Allow parent directories for explicitly tracked files
+!data/
+!data/constants/
+# Allow DVC tracking files
+!data/**/*.dvc
+# Allow essential reference datasets
+!data/constants/jobs.csv
+!data/constants/locations.yaml
+!data/constants/skills.csv
+
+# Data & artifacts
+# Ignore the raw data folder content
+artifacts/*
+# But DO NOT ignore the .dvc files that track them
+!artifacts/*.dvc
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+
+
+# MLflow local database
+mlflow.db
+mlruns/
+
+# --- DVC / ML Models ---
+# 1. Ignore the heavy weight folders specifically
+models/all-mpnet-base-v2/
+
+# 2. Ensure the .dvc files are NEVER ignored
+!models/*.dvc
+!models/**/*.dvc
+
+# 3. Ensure DVC internal gitignores are kept
+!models/**/.gitignore
+
+!data/constants/jobs.csv
+!data/constants/locations.yaml
+!data/constants/skills.csv
+
+
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+
+# Local IDE files
+.vscode/
+.idea/
+
+# Temporary files
+*.tmp
+*.bak
+
+
+# Optional scraped datasets
+HEADLESS_BROWSING/*.csv
+
+# Files intentionally excluded
+ci.txt
+verify_s3_upload.py
+tests/data/dummy_resume.pdf
+src/temp_backfill.py

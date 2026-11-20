@@ -1,0 +1,60 @@
+CREATE TABLE IF NOT EXISTS job_embeddings (
+    job_id TEXT PRIMARY KEY,          -- The ID from SerpAPI (e.g., "SAzGoncB...")
+    job_title TEXT NOT NULL,          -- For display
+    category TEXT NOT NULL,           -- THE FILTER: "Software Engineering", "Data Science"
+    location TEXT,                    -- Secondary Filter: "Mumbai", "Remote"
+    description_embedding vector(768),-- The MPNet Embeddings (768 dims)
+    metadata JSONB,                   -- Catch-all: salary, apply_link, company_name, etc.
+    ingestion_month VARCHAR(7),       -- "2026-01" (For data versioning)
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- The Speed Layer (Indexes)
+-- HNSW Index: Makes vector search O(log n) instead of O(n)
+CREATE INDEX IF NOT EXISTS idx_vec_search 
+ON job_embeddings USING hnsw (description_embedding vector_cosine_ops);
+
+-- B-Tree Index: Makes filtering by category instant
+CREATE INDEX IF NOT EXISTS idx_category 
+ON job_embeddings (category);
+
+docker exec -it resume-postgres psql -U postgres -d postgres -c "
+CREATE TABLE IF NOT EXISTS role_definitions (
+    role_id SERIAL PRIMARY KEY,
+    job_title TEXT UNIQUE,
+    internal_category TEXT,
+    priority_tier TEXT,
+    
+    -- The 'Vibe' (Used for fast retrieval)
+    anchor_embedding vector(768), # contain role summary resposiblity experience etc 
+    
+    -- The 'Checklist' (Used for detailed scoring)
+    full_definition JSONB, #contain skill_taxonomy ,resume_keywords, experience , education etc
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP #version tracking 
+);"
+
+
+ -- Table 1: Static Job Taxonomy
+    CREATE TABLE IF NOT EXISTS jobs_base (
+        job_id SERIAL PRIMARY KEY,
+        job_title VARCHAR(255) UNIQUE NOT NULL,
+        internal_category VARCHAR(255) NOT NULL
+    );
+
+    -- Table 2: Dynamic Ingestion Policy (SCD Type 2)
+    CREATE TABLE IF NOT EXISTS ingestion_policy (
+        policy_id SERIAL PRIMARY KEY,
+        internal_category VARCHAR(255) NOT NULL,
+        priority VARCHAR(50) NOT NULL,
+        effective_from TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        effective_to TIMESTAMP NULL,
+        reason VARCHAR(255)
+    );
+
+    -- Table 3: Active Locations
+    CREATE TABLE IF NOT EXISTS locations_base (
+        loc_id SERIAL PRIMARY KEY,
+        location_name VARCHAR(255) UNIQUE NOT NULL,
+        is_active BOOLEAN DEFAULT TRUE
+    );
+    """

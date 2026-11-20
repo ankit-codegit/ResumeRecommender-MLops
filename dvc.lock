@@ -1,0 +1,120 @@
+schema: '2.0'
+stages:
+  ingest:
+    cmd: python data_ingestion/jd_ingestion/serp_api/serpapi_ingest.py
+    deps:
+    - path: data/constants/jobs.csv
+      hash: md5
+      md5: cf38cf334553d9dcebf25534e11256f0
+      size: 1620
+    - path: data/constants/locations.yaml
+      hash: md5
+      md5: 835e0ab1523ebc559cd6476ed54c3dd4
+      size: 213
+    - path: data_ingestion/jd_ingestion/serp_api/priority_scheduler.py
+      hash: md5
+      md5: 9302748c69dea3e928b2599a58c27e02
+      size: 930
+    - path: data_ingestion/jd_ingestion/serp_api/serpapi_client.py
+      hash: md5
+      md5: e89cfdf758c0788f920dab384063a142
+      size: 827
+    - path: data_ingestion/jd_ingestion/serp_api/serpapi_ingest.py
+      hash: md5
+      md5: 1635b1dd8de0dac9be5c2ee6bf13c6c2
+      size: 5859
+    - path: utils
+      hash: md5
+      md5: d50c87ed27ab416bbde5b45300f9fadb.dir
+      size: 3630
+      nfiles: 3
+    - path: utils/paths.py
+      hash: md5
+      md5: da5310337c5ebfd665eaa64468596e14
+      size: 2380
+    params:
+      params.yaml:
+        ingest.current_month: '2026-01-31'
+        serpapi_ingestion:
+          max_api_calls: 2500
+    outs:
+    - path: data/raw/serpapi/2026-01-31
+      hash: md5
+      md5: d751713988987e9331980363e24189ce.dir
+      size: 0
+      nfiles: 0
+  process_jd_raw_jsons:
+    cmd: python data_ingestion\processors\process_data.py
+    deps:
+    - path: data/raw/serpapi/2026-01-31
+      hash: md5
+      md5: d751713988987e9331980363e24189ce.dir
+      size: 0
+      nfiles: 0
+    - path: data_ingestion/processors/process_data.py
+      hash: md5
+      md5: e3dee5fd2a321442785be6241f166de3
+      size: 8837
+    - path: utils/
+      hash: md5
+      md5: d50c87ed27ab416bbde5b45300f9fadb.dir
+      size: 3630
+      nfiles: 3
+    outs:
+    - path: data/processed/serpapi/2026-01-31.csv
+      hash: md5
+      md5: 4ec9b5832d4fefb078aad3cc64a33a27
+      size: 198
+  label_scraped_jobs:
+    cmd: python src/label_jobs.py
+    deps:
+    - path: data/processed/serpapi/2026-01-31.csv
+      hash: md5
+      md5: 4ec9b5832d4fefb078aad3cc64a33a27
+      size: 198
+    - path: src/label_jobs.py
+      hash: md5
+      md5: 888d3a2dc80c67952f2779eb38316ed1
+      size: 3392
+    - path: utils/
+      hash: md5
+      md5: d50c87ed27ab416bbde5b45300f9fadb.dir
+      size: 3630
+      nfiles: 3
+    outs:
+    - path: data/final/serpapi/2026-01-31.csv
+      hash: md5
+      md5: 4ec9b5832d4fefb078aad3cc64a33a27
+      size: 198
+  build_vector_store:
+    cmd: python src/vector_db/ingest.py
+    deps:
+    - path: data/final/serpapi/2026-01.csv
+      hash: md5
+      md5: 591dacfb99207cad60180040e0b47961
+      size: 4084699
+    - path: src/vector_db/client.py
+      hash: md5
+      md5: 9e6d202a914e669952e29f95040abc09
+      size: 2478
+    - path: src/vector_db/encoder.py
+      hash: md5
+      md5: 13f005c12e5ce7df1de7cde13d8b1660
+      size: 3964
+    - path: src/vector_db/ingest.py
+      hash: md5
+      md5: 605e21e5b54b7f57663bcba10d76c590
+      size: 5112
+    - path: utils/
+      hash: md5
+      md5: d50c87ed27ab416bbde5b45300f9fadb.dir
+      size: 3630
+      nfiles: 3
+    params:
+      params.yaml:
+        ingest.current_month: 2026-01
+    outs:
+    - path: data/final/serpapi/2026-01.vector_done
+      hash: md5
+      md5: d41d8cd98f00b204e9800998ecf8427e
+      size: 0
