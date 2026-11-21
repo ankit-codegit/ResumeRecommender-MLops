@@ -25,8 +25,9 @@ env*/
 # Ignore data contents by default
 data/**
 # Allow parent directories for explicitly tracked files
-!data/
-!data/constants/
+!data/processed/
+!data/processed/linkedin/
+!data/processed/linkedin/**
 !data/constants/KB/
 !data/constants/KB/**
 !data/constants/KB/*.dvc
