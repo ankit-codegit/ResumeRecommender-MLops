@@ -28,6 +28,8 @@ data/**
 !data/processed/
 !data/processed/linkedin/
 !data/processed/linkedin/**
+!data/constants/
+!data/constants/*.dvc
 !data/constants/KB/
 !data/constants/KB/**
 !data/constants/KB/*.dvc

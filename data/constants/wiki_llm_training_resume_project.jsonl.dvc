@@ -1,0 +1,5 @@
+outs:
+- md5: 08c0dddcb6ce1ed8cd8435d07c6485f5
+  size: 4191626
+  hash: md5
+  path: wiki_llm_training_resume_project.jsonl
